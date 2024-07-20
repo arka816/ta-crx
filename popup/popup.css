@@ -1,0 +1,56 @@
+body {
+    padding: 10px;
+    width: 250px;
+}
+
+#kwElemWrapper {
+    margin-bottom: 10px;
+}
+
+input {
+    padding: 4px 10px 4px 10px;
+    margin: 0;
+    line-height: 20px;
+    border-radius: 15px;
+    border-width: 1px;
+}
+
+#keywordElem {
+    width: calc(100% - 22px);
+    left: 50%;
+    position: relative;
+    transform: translateX(-50%);
+}
+
+#maxElemsWrapper {
+    margin-bottom: 10px;
+    display: inline-flex;
+    justify-content: space-between;
+}
+
+#maxPlacesElem, #maxReviewsElem {
+    width: 40%;
+}
+
+#checkBoxWrapper {
+    display: inline-flex;
+    height: 20px;
+}
+
+#saveImagesElem {
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+#checkBoxWrapper label {
+    line-height: 18px;
+}
+
+#searchBtnElem {
+    width: 100%;
+    height: 36px;
+    color: white;
+    border: none;
+    background-color: #6544db;
+    border-radius: 18px;
+}
