@@ -391,7 +391,12 @@ class ReviewParser{
                 var rating = null;
             }
             finally{
-                var rating = parseFloat(ratingText.split(' ')[0]);
+                if (ratingText !== undefined){
+                    var rating = parseFloat(ratingText.split(' ')[0]);
+                }
+                else{
+                    rating = null;
+                }
             }
 
             // review title
@@ -411,13 +416,19 @@ class ReviewParser{
                 var reviewTripType = '';
             }
             finally{
-                if (reviewDateText.includes('•')) {
-                    var [reviewDate, reviewTripType] = reviewDateText.split('•');
-                    reviewDate = reviewDate.trim();
-                    reviewTripType = reviewTripType.trim();
+                if (reviewDateText !== undefined) {
+                    if (reviewDateText.includes('•')) {
+                        var [reviewDate, reviewTripType] = reviewDateText.split('•');
+                        reviewDate = reviewDate.trim();
+                        reviewTripType = reviewTripType.trim();
+                    }
+                    else {
+                        var reviewDate = reviewDateText.trim();
+                        var reviewTripType = '';
+                    }
                 }
                 else {
-                    var reviewDate = reviewDateText.trim();
+                    var reviewDate = '';
                     var reviewTripType = '';
                 }
             }
@@ -458,7 +469,12 @@ class ReviewParser{
                 var reviewWrittenDate = '';
             }
             finally{
-                var reviewWrittenDate = reviewWrittenText.replace('written', '').trim();
+                if (reviewWrittenText !== undefined){
+                    var reviewWrittenDate = reviewWrittenText.replace('written', '').trim();
+                }
+                else {
+                    var reviewWrittenDate = '';
+                }
             }
 
             let review = {

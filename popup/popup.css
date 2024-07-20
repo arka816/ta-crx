@@ -54,3 +54,8 @@ input {
     background-color: #6544db;
     border-radius: 18px;
 }
+
+#statusElem {
+    margin-top: 5px;
+    margin-left: 5px;
+}
