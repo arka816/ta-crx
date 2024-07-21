@@ -1,49 +1,25 @@
-#!/usr/bin/env python3
-
-import asyncio
-from websockets import ConnectionClosedOK
-from websockets.server import serve
-from urllib.parse import urlencode, urlsplit, parse_qs
+import os
 import json
 import uuid
-import os, sys
-from getopt import getopt
+from urllib.parse import urlencode, urlsplit, parse_qs
 import requests
 import numpy as np
 import pandas as pd
-
-# default
-port = 4567
-output_dir = r'C:\Users\arka\Downloads'
-
-argv = sys.argv[1:] 
-  
-try: 
-    opts, args = getopt(argv, "o:p:",  ["output_dir=", "port="])   
-except: 
-    print("error in parsing command line args. falling back to default values.") 
-
-for opt, arg in opts: 
-    if opt in ['-o', '--output_dir']: 
-        output_dir = arg 
-    elif opt in ['-p', '--port']: 
-        port = arg 
-
-
 
 class ScraperProcessor:
     __IMAGES_MAX_RES__ = 2400
     __CHUNK_SIZE = 4096
 
-    def __init__(self, inputs, output, callback) -> None:
+    def __init__(self, inputs, output, output_dir, callback) -> None:
         self.inputs = inputs
         self.output = output
+        self.output_dir = output_dir
         self.callback = callback
 
         self.create_folder_structure()
 
     def create_folder_structure(self):
-        self.base_dir = os.path.join(output_dir, self.inputs['keyword'])
+        self.base_dir = os.path.join(self.output_dir, self.inputs['keyword'])
         os.makedirs(self.base_dir, exist_ok=True)
 
         if self.inputs['saveImages']:
@@ -73,7 +49,6 @@ class ScraperProcessor:
         for _, row in df.iterrows():
             image_df = pd.DataFrame(row['images'])
             image_df['review_id'] = row['review_id']
-            # image_df['file_name'] = [f"{row['review_id']}-{i+1}.jpg" for i in range(image_df.shape[0])]
 
             image_dfs.append(image_df)
 
@@ -176,47 +151,3 @@ class ScraperProcessor:
             'message': 'processing complete'
         }
         await self.callback(json.dumps(response))
-
-
-async def handler(socket):
-    while True:
-        try:
-            message = await socket.recv()
-        except ConnectionClosedOK:
-            continue
-
-        # process message
-        message = json.loads(message)
-
-        if message['type'] == 'INIT':
-            # spawn a pid to process scraper data
-            processor = ScraperProcessor(message['inputs'], message['output'], socket.send)
-
-            # acknowledge reception of data
-            response = {
-                'type': 'ACK',
-                'message': 'job queued at server-side. processing...'
-            }
-            await socket.send(json.dumps(response))
-
-            await processor.process()
-        elif message['type'] == 'ECHO':
-            await socket.send(json.dumps(message))
-        
-
-async def main():
-    async with serve(handler, "localhost", port):
-        await asyncio.Future()
-
-if __name__ == '__main__':
-    asyncio.run(main())
-
-    # test
-    # inputs = {
-    #     'keyword': 'darjeeling',
-    #     'saveImages': True
-    # }
-    # output = json.load(open('data.json'))
-
-    # processor = ScraperProcessor(inputs, output, print)
-    # processor.process()
