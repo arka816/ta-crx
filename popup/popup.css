@@ -22,10 +22,11 @@ input {
     transform: translateX(-50%);
 }
 
-#maxElemsWrapper {
+#maxElemsWrapper, #btnWrapper {
     margin-bottom: 10px;
     display: inline-flex;
     justify-content: space-between;
+    width: 100%;
 }
 
 #maxPlacesElem, #maxReviewsElem {
@@ -35,6 +36,7 @@ input {
 #checkBoxWrapper {
     display: inline-flex;
     height: 20px;
+    width: 100%;
 }
 
 #saveImagesElem {
@@ -46,8 +48,8 @@ input {
     line-height: 18px;
 }
 
-#searchBtnElem {
-    width: 100%;
+#searchBtnElem, #resetBtnElem {
+    width: 49%;
     height: 36px;
     color: white;
     border: none;

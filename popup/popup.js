@@ -6,6 +6,7 @@ const maxPlacesElem = document.getElementById("maxPlacesElem");
 const maxReviewsElem = document.getElementById("maxReviewsElem");
 const saveImagesElem = document.getElementById("saveImagesElem");
 const kwInputBtn = document.getElementById("searchBtnElem");
+const resetBtn = document.getElementById('resetBtnElem');
 const statusElem = document.getElementById("statusElem");
 
 var active = true;
@@ -62,6 +63,11 @@ window.onload = function(){
     
         sendInputs(keyword, maxPlaces, maxReviews, saveImages);
     });
+
+    resetBtn.addEventListener("click", async () => {
+        await chrome.storage.local.clear();
+        setStatus('reset state');
+    })
 }
 
 

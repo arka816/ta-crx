@@ -60,16 +60,25 @@ function keepAlive() {
     );
 }
 
+function socketError(callback){
+    console.log('web socket error. falling back to raw download.')
+
+    callback({
+        type: 'ERROR',
+        message: 'web socket error'
+    });
+}
+
 function handleDownload(serverPayload, callback) {
-    webSocket = new WebSocket(serverUrl);
+    try{
+        webSocket = new WebSocket(serverUrl);
+    }
+    catch(e){
+        socketError(callback);
+    }
 
     webSocket.onerror = (event) => {
-        console.log('web socket error. falling back to raw download.')
-
-        callback({
-            type: 'ERROR',
-            message: 'web socket error'
-        });
+        socketError(callback);
     }
 
     webSocket.onopen = (event) => {

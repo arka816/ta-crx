@@ -35,6 +35,7 @@ class ReviewParser{
         this.updateStatus = this.updateStatus.bind(this);
         this.notifyError = this.notifyError.bind(this);
         this.search = this.search.bind(this);
+        this.setMaxPlacesCount = this.setMaxPlacesCount.bind(this);
         this.switchTabs = this.switchTabs.bind(this);
         this.scrapePlaces = this.scrapePlaces.bind(this);
         this.placesFinished = this.placesFinished.bind(this);
@@ -124,16 +125,44 @@ class ReviewParser{
         return exists('div.SVuzf > div > div.kgrOn > a');
     }
 
+    placeCountContainerExists(){
+        // utility to search for place count container
+        return exists('div.uYzlj > div.biGQs > div.Ci')
+    }
+
     reviewsContainerExists(){
         // utility to search for places container
         return exists('div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
+    }
+
+    async setMaxPlacesCount(){
+        // util to get count of places returned by search
+        // set maxPlaces to minimum of user set and available
+        try{
+            if (await wait(this.placeCountContainerExists, 500, 10*1000)){
+                var placeResultsCountText = document.querySelector('div.uYzlj > div.biGQs > div.Ci').innerText;
+                var placeResultsCount = parseInt(placeResultsCountText.split(' ').at(-1));
+            }
+        }
+        catch(e){
+            console.error(e);
+            return;
+        }
+        finally{
+            this.maxPlaces = Math.min(placeResultsCount, this.maxPlaces);
+        }
     }
 
     notifyError(errMsg){
         // utility function to notify error
         // current implementation using alerts
         // TODO: more sophisticated
-        this.clearState().then(() => {alert(errMsg)});
+        this.clearState().then(
+            () => {
+                alert(errMsg);
+                window.location = ALLOWED_HOMEPAGE_LOCATIONS[0];
+            }
+        );
     }
 
     async switchTabs(){
@@ -178,6 +207,9 @@ class ReviewParser{
 
             // update state
             await this.updateNextAction();
+
+            // update places count
+            await this.setMaxPlacesCount();
 
             // scrape places
             await this.scrapePlaces();
@@ -289,8 +321,15 @@ class ReviewParser{
 
         // scrape urls from places to go / things to do items in current page
         if (! await wait(this.placesContainerExists, 500, 10*1000)){
-            // send error
-            this.notifyError("container for places not found");
+            if (this.placesCount == 0){
+                // send error
+                this.notifyError("container for places not found");
+            }
+            else {
+                // Case 1: actual error happened but some results have been collected
+                // Case 2: in case max places was not updated, no more results exist
+                await this.placesFinished();
+            }
         }
         else {
             await this.updateStatus({
@@ -358,8 +397,17 @@ class ReviewParser{
 
         // scrape urls from places to go / things to do items in current page
         if (! await wait(this.reviewsContainerExists, 500, 10*1000)){
-            // send error
-            this.notifyError("container for reviews not found")
+            // log error
+            // this.notifyError("container for reviews not found")
+            console.error("container for reviews not found");
+
+            // push whatever reviews collected so far, if any
+            if (this.currentReviewsCount > 0) {
+                await this.updateOutput();
+            }
+
+            // switch to next place
+            this.switchPlace();
         }
         else {
             await this.updateStatus({
