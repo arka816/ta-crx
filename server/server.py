@@ -15,12 +15,12 @@ output_dir = r'C:\Users\arka\Downloads'
 argv = sys.argv[1:] 
   
 try: 
-    opts, args = getopt(argv, "o:p:",  ["output_dir=", "port="])   
+    opts, args = getopt(argv, "o:p:",  ["output-dir=", "port="])   
 except: 
     print("error in parsing command line args. falling back to default values.") 
 
 for opt, arg in opts: 
-    if opt in ['-o', '--output_dir']: 
+    if opt in ['-o', '--output-dir']: 
         output_dir = arg 
     elif opt in ['-p', '--port']: 
         port = arg 
