@@ -432,12 +432,14 @@ class ReviewParser{
             let placeName = placeNameContainer.innerText.toLowerCase();
 
             if (url !== undefined && url !== null){
-                this.placeUrls.push({
-                    url: url,
-                    placeType: placeType,
-                    placeName: placeName
-                });
-                this.placesCount++;
+                if (SUPPORTED_SCRAPERS.includes(placeType)){
+                    this.placeUrls.push({
+                        url: url,
+                        placeType: placeType,
+                        placeName: placeName
+                    });
+                    this.placesCount++;
+                }
             }
 
             if (this.placesCount >= this.maxPlaces) {
@@ -469,10 +471,15 @@ class ReviewParser{
         // wrapper function that calls one of the scrapers depending on placetype
         var placeType = this.placeUrls[this.currentPlace].placeType;
 
-        if(placeType === null) await this.scrapeReviews();
-        else if(placeType == 'things to do') await this.scrapeReviews();
-        else if(placeType == 'hotel') await this.scrapeHotelReviews();
-        else if(placeType == 'restaurant') await this.scrapeRestaurantReviews();
+        if(!SUPPORTED_SCRAPERS.includes(placeType)){
+            alert(`scraping for ${placeType} is not supported yet`)
+            await this.switchPlace();
+        }
+        else {
+            if(placeType == 'things to do') await this.scrapeReviews();
+            else if(placeType == 'hotel') await this.scrapeHotelReviews();
+            else if(placeType == 'restaurant') await this.scrapeRestaurantReviews();
+        }
     }
 
     async scrapeReviews(){
