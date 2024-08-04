@@ -36,13 +36,17 @@ class ReviewParser{
         this.notifyError = this.notifyError.bind(this);
         this.search = this.search.bind(this);
         this.setMaxPlacesCount = this.setMaxPlacesCount.bind(this);
+        this.expandReviewsContainer = this.expandReviewsContainer.bind(this);
         this.switchTabs = this.switchTabs.bind(this);
         this.scrapePlaces = this.scrapePlaces.bind(this);
         this.placesFinished = this.placesFinished.bind(this);
         this.scrapeReviews = this.scrapeReviews.bind(this);
         this.switchPlace = this.switchPlace.bind(this);
         this.updateOutput = this.updateOutput.bind(this);
+        this.scrapeReviewsWrap = this.scrapeReviewsWrap.bind(this);
         this.swipeReview = this.swipeReview.bind(this);
+        this.swipeHotelReview = this.swipeHotelReview.bind(this);
+        this.swipeRestaurantReview = this.swipeRestaurantReview.bind(this);
         this.sendToServer = this.sendToServer.bind(this);
 
         this.start();
@@ -131,8 +135,22 @@ class ReviewParser{
     }
 
     reviewsContainerExists(){
-        // utility to search for places container
+        // utility to search for reviews container
         return exists('div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
+    }
+
+    hotelReviewsContainerExists(){
+        // utility to search for reviews container for hotel pages
+        return exists('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div.azLzJ');
+    }
+
+    restaurantReviewsContainerExists(){
+        // utility to search for reviews container for restaurant pages
+        return exists('section#REVIEWS > div.iTazX > div.zyBif > div > div > div.JmLZe > div > div');
+    }
+
+    showMoreBtnExists(){
+        return exists('div.SVuzf button.rmyCe');
     }
 
     async setMaxPlacesCount(){
@@ -145,11 +163,22 @@ class ReviewParser{
             }
         }
         catch(e){
-            console.error(e);
+            console.log(e);
             return;
         }
         finally{
             this.maxPlaces = Math.min(placeResultsCount, this.maxPlaces);
+        }
+    }
+
+    async expandReviewsContainer(){
+        // show more button
+        if (await wait(this.showMoreBtnExists, 500, 10 * 1000)) {
+            var showMoreBtn = document.querySelector('div.SVuzf button.rmyCe');
+            showMoreBtn.click();
+        }
+        else {
+            this.notifyError('"show more" button not found');
         }
     }
 
@@ -169,7 +198,7 @@ class ReviewParser{
         // switch to the 'things to do' tab
         if (! await wait(this.tabContainerExists, 500, 10*1000)) {
             // send error
-            this.notifyError('"things to do" tab not found');
+            this.notifyError('"all results" tab not found');
         }
 
         var tabContainer = document.querySelector('header.xySeT > div.YvlOj > div.eGVWv');
@@ -189,7 +218,7 @@ class ReviewParser{
                 let tabs = document.querySelectorAll('header.xySeT > div.YvlOj > div.eGVWv > button');
                 for (let tab of tabs) {
                     console.log(tab.innerText.toLowerCase());
-                    if (tab.innerText.toLowerCase() == 'things to do') {
+                    if (tab.innerText.toLowerCase() == 'all results') {
                         tab.click();
                         break;
                     }
@@ -198,25 +227,28 @@ class ReviewParser{
             else if (tabMode == 2){
                 let tabs = document.querySelectorAll('div.giPtt > div.Ph > a > div');
                 for (let tab of tabs) {
-                    if (tab.innerText.toLowerCase() == 'things to do') {
+                    if (tab.innerText.toLowerCase() == 'all results') {
                         tab.click();
                         break;
                     }
                 }
             }
 
-            // update state
-            await this.updateNextAction();
+            // expand by clicking on show more button
+            await this.expandReviewsContainer();
 
             // update places count
             await this.setMaxPlacesCount();
+
+            // update state
+            await this.updateNextAction();
 
             // scrape places
             await this.scrapePlaces();
         }
         else{
             // send error message
-            this.notifyError('"things to do tab" not found');
+            this.notifyError('"all results" tab not found');
         }
     }
 
@@ -230,12 +262,6 @@ class ReviewParser{
             message: 'scraped places'
         });
         await this.updateNextAction();
-
-        // console.log("places finished");
-        // console.log(this.state);
-        // var data = await chrome.storage.local.get('state')
-        // console.log(JSON.parse(data.state));
-        // alert('check console')
 
         this.state = {
             ...this.state, 
@@ -254,6 +280,7 @@ class ReviewParser{
         let placeObj = {
             name: this.placeUrls[this.currentPlace].placeName,
             url: this.placeUrls[this.currentPlace].url,
+            placeType: this.placeUrls[this.currentPlace].placeType,
             reviews: this.currentReviews
         }
 
@@ -302,15 +329,59 @@ class ReviewParser{
 
     async swipeReview(){
         // handler to swipe to next review page
-
         var nextReviewBtn = document.querySelector(
             `div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]:last-child > 
-            div:nth-child(2) > div > div.OvVFl.j > div.xkSty > div > a`
+            div:nth-child(2) > div > div.OvVFl.j > div.xkSty > div.UCacc > a`
         )
 
-        if (nextReviewBtn !== null) nextReviewBtn.click();
+        if (nextReviewBtn !== null){
+            nextReviewBtn.click();
+        }
+        else {
+            console.log('no more review pages');
+            console.log(this.currentReviews);
 
-        await sleep(1000);
+            await this.updateOutput();
+            this.switchPlace();
+        }
+    }
+
+    async swipeHotelReview(){
+        // handler to swipe to next hotel review page
+        var nextReviewBtn = document.querySelector(
+            `div[data-test-target="reviews-tab"] > div.ruCQl.z > div.uqMDf.z.BGJxv.xOykd.jFVeD.yikFK > 
+            div > div.uYzlj.c > div.lATJZ > div.OvVFl.j > div.xkSty > div.UCacc > a`
+        )
+
+        if (nextReviewBtn !== null) {
+            nextReviewBtn.click();
+        }
+        else {
+            console.log('no more review pages');
+            console.log(this.currentReviews);
+
+            await this.updateOutput();
+            this.switchPlace();
+        }
+    }
+
+    async swipeRestaurantReview(){
+        // handler to swipe to next hotel review page
+        var nextReviewBtn = document.querySelector(
+            `section#REVIEWS > div.iTazX > div.zyBif > div > div > div.uYzlj > 
+            div.lATJZ > div.OvVFl.j > div.xkSty > div.UCacc > a`
+        )
+
+        if (nextReviewBtn !== null) {
+            nextReviewBtn.click();
+        }
+        else {
+            console.log('no more review pages');
+            console.log(this.currentReviews);
+
+            await this.updateOutput();
+            this.switchPlace();
+        }
     }
 
     async scrapePlaces(){
@@ -349,6 +420,13 @@ class ReviewParser{
             // get url
             let url = placeItem.href ?? placeItem.getAttribute('href');
 
+            // get place type
+            let placeTypeContainer = placeItem.querySelector("div > div.yJIls.z.y > header > div > div > div > div.ngpKT > span.biGQs");
+            let placeType = null;
+            if (placeTypeContainer !== null){
+                placeType = placeTypeContainer.innerText.toLowerCase();
+            }
+
             // get place name
             let placeNameContainer = placeItem.querySelector("div > div.yJIls.z.y > header > div > div > div.biGQs._P.fiohW.ngXxk > a");
             let placeName = placeNameContainer.innerText.toLowerCase();
@@ -356,6 +434,7 @@ class ReviewParser{
             if (url !== undefined && url !== null){
                 this.placeUrls.push({
                     url: url,
+                    placeType: placeType,
                     placeName: placeName
                 });
                 this.placesCount++;
@@ -386,6 +465,16 @@ class ReviewParser{
         }
     }
 
+    async scrapeReviewsWrap(){
+        // wrapper function that calls one of the scrapers depending on placetype
+        var placeType = this.placeUrls[this.currentPlace].placeType;
+
+        if(placeType === null) await this.scrapeReviews();
+        else if(placeType == 'things to do') await this.scrapeReviews();
+        else if(placeType == 'hotel') await this.scrapeHotelReviews();
+        else if(placeType == 'restaurant') await this.scrapeRestaurantReviews();
+    }
+
     async scrapeReviews(){
         // edge case: places count already exceeded max places input
         if (this.currentReviewsCount >= this.maxReviews) {
@@ -399,7 +488,7 @@ class ReviewParser{
         if (! await wait(this.reviewsContainerExists, 500, 10*1000)){
             // log error
             // this.notifyError("container for reviews not found")
-            console.error("container for reviews not found");
+            console.log("container for reviews not found");
 
             // push whatever reviews collected so far, if any
             if (this.currentReviewsCount > 0) {
@@ -407,7 +496,7 @@ class ReviewParser{
             }
 
             // switch to next place
-            this.switchPlace();
+            await this.switchPlace();
         }
         else {
             await this.updateStatus({
@@ -455,7 +544,7 @@ class ReviewParser{
                 var reviewTitle = '';
             }
 
-            // review date and if possible trip type
+            // visit date and if possible trip type
             try{
                 var reviewDateText = reviewItem.querySelector('div.RpeCd').innerText;
             }
@@ -552,9 +641,344 @@ class ReviewParser{
         }
         else {
             // switch to next review page
+            // or if no more reviews switch to next place
+            await this.swipeReview();
+
             // call this function recursively
-            this.swipeReview();
-            this.scrapeReviews();
+            await this.scrapeReviews();
+        }
+    }
+
+    async scrapeHotelReviews(){
+        // edge case: places count already exceeded max places input
+        if (this.currentReviewsCount >= this.maxReviews) {
+            await this.updateOutput();
+            this.switchPlace();
+        }
+
+        await scrollToBottom();
+
+        // scrape urls from places to go / things to do items in current page
+        if (! await wait(this.hotelReviewsContainerExists, 500, 10*1000)){
+            // log error
+            // this.notifyError("container for reviews not found")
+            console.log("container for reviews not found");
+
+            // push whatever reviews collected so far, if any
+            if (this.currentReviewsCount > 0) {
+                await this.updateOutput();
+            }
+
+            // switch to next place
+            await this.switchPlace();
+        }
+        else {
+            await this.updateStatus({
+                code: 'RUNNING',
+                message: 'scraping reviews...'
+            })
+        }
+
+        var reviewItems = document.querySelectorAll('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div.azLzJ');
+        var finished = false;
+
+        for (let reviewItem of reviewItems) {
+            // reviewer username
+            try{
+                var username = reviewItem.querySelector('div.MD > div > div.w.o > div > div > span > a.blnum.BDpWK').innerText;
+            }
+            catch(e){
+                var username = '';
+            }
+            
+            // rating text
+            try{
+                var ratingText = reviewItem.querySelector('div.kmMXA._T.Gi > div.WcRsW.f.O > div > svg title').textContent;
+            }
+            catch(e){
+                var rating = null;
+            }
+            finally{
+                if (ratingText !== undefined){
+                    var rating = parseFloat(ratingText.split(' ')[0]);
+                }
+                else{
+                    rating = null;
+                }
+            }
+
+            // review title
+            try{
+                var reviewTitle = reviewItem.querySelector('div.kmMXA._T.Gi > div.joSMp.MI._S.b.S6.H5.Cj._a > a > span > span').innerText;
+            }
+            catch(e){
+                var reviewTitle = '';
+            }
+
+            // date of stay
+            try{
+                var reviewDateContainer = reviewItem.querySelector('div.kmMXA._T.Gi > div.yJgrn > div.PDZqu > span.iSNGb._R.Me.S4.H3.Cj');
+            }
+            catch(e){
+                var reviewDate = '';
+            }
+            finally{
+                if (reviewDateContainer !== null && reviewDateContainer.childNodes.length >= 2){
+                    var reviewDate = reviewDateContainer.childNodes[1].nodeValue.trim().toLowerCase();
+                }
+                else {
+                    var reviewDate = '';
+                }
+            }
+
+            // review text
+            var readMoreBtn = reviewItem.querySelector('div.kmMXA._T.Gi > div.yJgrn > div._T.FKffI.bmUTE > div.lszDU > div > span.bcpeg._S.Ci');
+
+            // expand full review text
+            if (readMoreBtn !== null && readMoreBtn.innerText.trim().toLowerCase() == 'read more') {
+                readMoreBtn.click();
+            }
+
+            try{
+                var reviewText = reviewItem.querySelector('div.kmMXA._T.Gi > div.yJgrn > div._T.FKffI > div.fIrGe._T > span > span').innerText;
+            }
+            catch(e){
+                var reviewText = '';
+            }
+            
+            // get image links
+            var imageContainer = reviewItem.querySelector('div.f.z.QBsxC');
+            var imageSources = [];
+
+            if (imageContainer != null) {
+                let images = imageContainer.querySelectorAll('div > picture > img');
+
+                for (let image of images) {
+                    let imgSrcSet = image.getAttribute('src');
+                    imageSources.push(parseSrcSet(imgSrcSet));
+                }
+            }
+
+            // get review write date
+            try{
+                var reviewWrittenContainer = reviewItem.querySelector('div.MD > div > div.w.o > div > div > span');
+            }
+            catch(e){
+                var reviewWrittenDate = '';
+            }
+            finally{
+                if (reviewWrittenContainer !== null && reviewWrittenContainer.childNodes.length >= 2){
+                    var reviewWrittenDate = reviewWrittenContainer.childNodes[1].nodeValue.toLowerCase().replace('wrote a review', '').trim();
+                }
+                else {
+                    var reviewWrittenDate = '';
+                }
+            }
+
+            let review = {
+                username: username,
+                rating: rating,
+                title: reviewTitle,
+                travelDate: reviewDate,
+                text: reviewText,
+                images: imageSources,
+                reviewDate: reviewWrittenDate
+            }
+
+            this.currentReviews.push(review);
+            this.currentReviewsCount ++;
+
+            if (this.currentReviewsCount >= this.maxReviews) {
+                finished = true;
+                break;
+            }
+        }
+
+        if (finished) {
+            console.log(this.currentReviews);
+
+            await this.updateOutput();
+            this.switchPlace();
+        }
+        else {
+            // switch to next review page
+            // or if no more reviews switch to next place
+            await this.swipeHotelReview();
+
+            // call this function recursively
+            await this.scrapeHotelReviews();
+        }
+    }
+
+    async scrapeRestaurantReviews(){
+        // edge case: places count already exceeded max places input
+        if (this.currentReviewsCount >= this.maxReviews) {
+            await this.updateOutput();
+            this.switchPlace();
+        }
+
+        await scrollToBottom();
+
+        // scrape urls from places to go / things to do items in current page
+        if (! await wait(this.restaurantReviewsContainerExists, 500, 10*1000)){
+            // log error
+            // this.notifyError("container for reviews not found")
+            console.log("container for reviews not found");
+
+            // push whatever reviews collected so far, if any
+            if (this.currentReviewsCount > 0) {
+                await this.updateOutput();
+            }
+
+            // switch to next place
+            await this.switchPlace();
+        }
+        else {
+            await this.updateStatus({
+                code: 'RUNNING',
+                message: 'scraping reviews...'
+            })
+        }
+
+        var reviewItems = document.querySelectorAll('section#REVIEWS > div.iTazX > div.zyBif > div > div > div.JmLZe > div > div');
+        var finished = false;
+
+        for (let reviewItem of reviewItems) {
+            // reviewer username
+            try{
+                var username = reviewItem.querySelector('div > div.jOdBK.k > div.XExLl.f.u.o > div.zpDvc.Zb > span > a').innerText;
+            }
+            catch(e){
+                var username = '';
+            }
+            
+            // rating text
+            try{
+                var ratingText = reviewItem.querySelector('div > div.kKMmV.J.k > svg > title').textContent;
+            }
+            catch(e){
+                var rating = null;
+            }
+            finally{
+                if (ratingText !== undefined){
+                    var rating = parseFloat(ratingText.split(' ')[0]);
+                }
+                else{
+                    rating = null;
+                }
+            }
+
+            // review title
+            try{
+                var reviewTitle = reviewItem.querySelector('div > div[data-test-target="review-title"] > span > div > a').innerText;
+            }
+            catch(e){
+                var reviewTitle = '';
+            }
+
+            // review date and if possible trip type
+            try{
+                var reviewDateText = reviewItem.querySelector('div > div.Szuxy').innerText;
+            }
+            catch(e){
+                var reviewDate = '';
+                var reviewTripType = '';
+            }
+            finally{
+                if (reviewDateText !== undefined) {
+                    if (reviewDateText.includes('•')) {
+                        var [reviewDate, reviewTripType] = reviewDateText.split('•');
+                        reviewDate = reviewDate.trim();
+                        reviewTripType = reviewTripType.trim();
+                    }
+                    else {
+                        var reviewDate = reviewDateText.trim();
+                        var reviewTripType = '';
+                    }
+                }
+                else {
+                    var reviewDate = '';
+                    var reviewTripType = '';
+                }
+            }
+
+            // review text
+            var readMoreBtn = reviewItem.querySelector('div > div[data-test-target="review-body"] > span > div > div.lszDU > button > span');
+
+            // expand full review text
+            if (readMoreBtn !== null && readMoreBtn.innerText.trim().toLowerCase() == 'read more') {
+                readMoreBtn.click();
+            }
+
+            try{
+                var reviewText = reviewItem.querySelector('div > div[data-test-target="review-body"] > span > div > div.fIrGe._T.bgMZj > div > span').innerText;
+            }
+            catch(e){
+                var reviewText = '';
+            }
+            
+            // get image links
+            var imageContainer = reviewItem.querySelector('div > div.XzlVY');
+            var imageSources = [];
+
+            if (imageContainer != null) {
+                let images = imageContainer.querySelectorAll('button > picture > img');
+
+                for (let image of images) {
+                    let imgSrcSet = image.getAttribute('srcset') ?? image.getAttribute('src');
+                    imageSources.push(parseSrcSet(imgSrcSet));
+                }
+            }
+
+            // get review write date
+            try{
+                var reviewWrittenText = reviewItem.querySelector('div > div.ncVYc > div.biGQs._P.pZUbB.ncFvv.osNWb').innerText.toLowerCase();
+            }
+            catch(e){
+                var reviewWrittenDate = '';
+            }
+            finally{
+                if (reviewWrittenText !== undefined){
+                    var reviewWrittenDate = reviewWrittenText.replace('written', '').trim();
+                }
+                else {
+                    var reviewWrittenDate = '';
+                }
+            }
+
+            let review = {
+                username: username,
+                rating: rating,
+                title: reviewTitle,
+                travelDate: reviewDate,
+                tripType: reviewTripType,
+                text: reviewText,
+                images: imageSources,
+                reviewDate: reviewWrittenDate
+            }
+
+            this.currentReviews.push(review);
+            this.currentReviewsCount ++;
+
+            if (this.currentReviewsCount >= this.maxReviews) {
+                finished = true;
+                break;
+            }
+        }
+
+        if (finished) {
+            console.log(this.currentReviews);
+
+            await this.updateOutput();
+            this.switchPlace();
+        }
+        else {
+            // switch to next review page
+            // or if no more reviews switch to next place
+            await this.swipeRestaurantReview();
+
+            // call this function recursively
+            await this.scrapeRestaurantReviews();
         }
     }
 
@@ -572,7 +996,8 @@ class ReviewParser{
             }, 
             (response) => {
                 if (chrome.runtime.lastError) {
-                    console.error(chrome.runtime.lastError);
+                    console.log(chrome.runtime.lastError);
+                    downloadFile(this.state.output);
                 }
                 else {
                     if (response.type == 'ACK'){
@@ -589,11 +1014,9 @@ class ReviewParser{
                         };
                         downloadFile(this.state.output);
                     }
-                    
-                    console.log(status);
-    
-                    this.updateStatus(status);
                 }
+
+                this.updateStatus(status);
             }
         );
     }
@@ -626,7 +1049,7 @@ class ReviewParser{
                 await this.scrapePlaces();
                 break;
             case 4:
-                await this.scrapeReviews();
+                await this.scrapeReviewsWrap();
                 break;
             case 5:
                 await this.sendToServer();

@@ -4,13 +4,14 @@ import asyncio
 from websockets import ConnectionClosedOK
 from websockets.server import serve
 import json
-import sys
+import sys, os
 from getopt import getopt
 from processor import ScraperProcessor
 
 # default
 port = 4567
 output_dir = r'C:\Users\arka\Downloads'
+MAX_SIZE = 128 * (2 ** 20)  # 128 MiB
 
 argv = sys.argv[1:] 
   
@@ -23,7 +24,10 @@ for opt, arg in opts:
     if opt in ['-o', '--output-dir']: 
         output_dir = arg 
     elif opt in ['-p', '--port']: 
-        port = arg 
+        port = arg
+
+if not os.path.exists(output_dir) or not os.path.isdir(output_dir):
+    raise FileNotFoundError(f'output directory: {output_dir} not found')
 
 
 async def handler(socket):
@@ -47,13 +51,13 @@ async def handler(socket):
             }
             await socket.send(json.dumps(response))
 
-            await processor.process()
+            await processor.async_process()
         elif message['type'] == 'ECHO':
             await socket.send(json.dumps(message))
         
 
 async def main():
-    async with serve(handler, "localhost", port):
+    async with serve(handler, "localhost", port, max_size=MAX_SIZE):
         await asyncio.Future()
 
 if __name__ == '__main__':

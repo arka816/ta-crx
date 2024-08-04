@@ -61,7 +61,7 @@ function keepAlive() {
 }
 
 function socketError(callback){
-    console.log('web socket error. falling back to raw download.')
+    console.log('web socket error. falling back to raw download.');
 
     callback({
         type: 'ERROR',

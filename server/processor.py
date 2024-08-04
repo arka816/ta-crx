@@ -5,12 +5,15 @@ from urllib.parse import urlencode, urlsplit, parse_qs
 import requests
 import numpy as np
 import pandas as pd
+import sys
+from getopt import getopt
+
 
 class ScraperProcessor:
     __IMAGES_MAX_RES__ = 2400
     __CHUNK_SIZE = 4096
 
-    def __init__(self, inputs, output, output_dir, callback) -> None:
+    def __init__(self, inputs, output, output_dir, callback=None) -> None:
         self.inputs = inputs
         self.output = output
         self.output_dir = output_dir
@@ -126,7 +129,7 @@ class ScraperProcessor:
 
         return review_df, image_df
 
-    async def process(self):
+    async def async_process(self):
         print("processing data...")
 
         # dump raw data
@@ -151,3 +154,47 @@ class ScraperProcessor:
             'message': 'processing complete'
         }
         await self.callback(json.dumps(response))
+
+    def process(self):
+        print("processing data...")
+
+        # tabulate data
+        review_df, image_df = self.tabulate_output()
+
+        # download images
+        if self.inputs['saveImages']:
+            image_df = self.download_images(image_df)
+
+        # save data to excel file
+        with pd.ExcelWriter(os.path.join(self.base_dir, 'results.xlsx')) as writer:
+            review_df.to_excel(writer, 'review', index=False)
+            image_df.to_excel(writer, 'images', index=False)
+
+        print('processed data')
+
+
+if __name__ == "__main__":
+    argv = sys.argv[1:]
+
+    file_path = None
+    output_dir = None
+  
+    try: 
+        opts, args = getopt(argv, "i:o:",  ["input-file=", "output-dir="])   
+    except: 
+        raise RuntimeError("error in parsing command line args") 
+
+    for opt, arg in opts: 
+        if opt in ['-i', '--input-file']: 
+            file_path = arg
+        elif opt in ['-o', '--output-dir']: 
+            output_dir = arg
+
+    if file_path is None or not os.path.exists(file_path) or not os.path.isfile(file_path):
+        raise RuntimeError("input json file not found")
+    if output_dir is None or not os.path.exists(output_dir) or not os.path.isdir(output_dir):
+        output_dir = os.path.dirname(file_path)
+
+    message = json.load(open(file_path, mode='r', encoding='utf-8'))
+    processor = ScraperProcessor(message['inputs'], message['output'], output_dir)
+    processor.process()
