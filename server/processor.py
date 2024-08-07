@@ -115,7 +115,8 @@ class ScraperProcessor:
 
         for place_item in self.output:
             review_df = pd.DataFrame(place_item['reviews'])
-            review_df['name'] = place_item['name']
+            review_df['place_name'] = place_item['name']
+            review_df['place_type'] = place_item['placeType']
             review_df['url'] = place_item['url']
             review_df['review_id'] = [uuid.uuid4() for _ in range(review_df.shape[0])]
 

@@ -276,6 +276,7 @@ class ReviewParser{
     }
 
     async updateOutput(){
+        alert(`updating output ${this.currentReviewsCount} ${this.currentReviews.length} ${this.maxReviews}`)
         // update output array with review outputs from current place
         let placeObj = {
             name: this.placeUrls[this.currentPlace].placeName,
@@ -621,19 +622,21 @@ class ReviewParser{
                 }
             }
 
-            let review = {
-                username: username,
-                rating: rating,
-                title: reviewTitle,
-                travelDate: reviewDate,
-                tripType: reviewTripType,
-                text: reviewText,
-                images: imageSources,
-                reviewDate: reviewWrittenDate
+            if (reviewText.length > 0){
+                let review = {
+                    username: username,
+                    rating: rating,
+                    title: reviewTitle,
+                    travelDate: reviewDate,
+                    tripType: reviewTripType,
+                    text: reviewText,
+                    images: imageSources,
+                    reviewDate: reviewWrittenDate
+                }
+    
+                this.currentReviews.push(review);
+                this.currentReviewsCount ++;
             }
-
-            this.currentReviews.push(review);
-            this.currentReviewsCount ++;
 
             if (this.currentReviewsCount >= this.maxReviews) {
                 finished = true;
@@ -658,6 +661,7 @@ class ReviewParser{
 
     async scrapeHotelReviews(){
         // edge case: places count already exceeded max places input
+        alert(`${this.currentReviewsCount} ${this.currentReviews.length} ${this.maxReviews}`)
         if (this.currentReviewsCount >= this.maxReviews) {
             await this.updateOutput();
             this.switchPlace();
@@ -743,7 +747,7 @@ class ReviewParser{
 
             // expand full review text
             if (readMoreBtn !== null && readMoreBtn.innerText.trim().toLowerCase() == 'read more') {
-                readMoreBtn.click();
+                // readMoreBtn.click();
             }
 
             try{
@@ -782,18 +786,20 @@ class ReviewParser{
                 }
             }
 
-            let review = {
-                username: username,
-                rating: rating,
-                title: reviewTitle,
-                travelDate: reviewDate,
-                text: reviewText,
-                images: imageSources,
-                reviewDate: reviewWrittenDate
-            }
+            if (reviewText.length > 0){
+                let review = {
+                    username: username,
+                    rating: rating,
+                    title: reviewTitle,
+                    travelDate: reviewDate,
+                    text: reviewText,
+                    images: imageSources,
+                    reviewDate: reviewWrittenDate
+                }
 
-            this.currentReviews.push(review);
-            this.currentReviewsCount ++;
+                this.currentReviews.push(review);
+                this.currentReviewsCount ++;
+            }
 
             if (this.currentReviewsCount >= this.maxReviews) {
                 finished = true;
@@ -914,7 +920,7 @@ class ReviewParser{
 
             // expand full review text
             if (readMoreBtn !== null && readMoreBtn.innerText.trim().toLowerCase() == 'read more') {
-                readMoreBtn.click();
+                // readMoreBtn.click();
             }
 
             try{
@@ -953,19 +959,21 @@ class ReviewParser{
                 }
             }
 
-            let review = {
-                username: username,
-                rating: rating,
-                title: reviewTitle,
-                travelDate: reviewDate,
-                tripType: reviewTripType,
-                text: reviewText,
-                images: imageSources,
-                reviewDate: reviewWrittenDate
-            }
+            if (reviewText.length > 0){
+                let review = {
+                    username: username,
+                    rating: rating,
+                    title: reviewTitle,
+                    travelDate: reviewDate,
+                    tripType: reviewTripType,
+                    text: reviewText,
+                    images: imageSources,
+                    reviewDate: reviewWrittenDate
+                }
 
-            this.currentReviews.push(review);
-            this.currentReviewsCount ++;
+                this.currentReviews.push(review);
+                this.currentReviewsCount ++;
+            }
 
             if (this.currentReviewsCount >= this.maxReviews) {
                 finished = true;
@@ -1029,6 +1037,14 @@ class ReviewParser{
     }
 
     async start(){
+        // unload alert
+        window.beforeunload = function(e){
+            var confirmationMessage = 'Scraping is going on. Leaving page might disrupt scraper performance.';
+        
+            (e || window.event).returnValue = confirmationMessage;  //Gecko + IE
+            return confirmationMessage;                             //Gecko + Webkit, Safari, Chrome etc.
+        }
+
         // verify if process is running
         if (this.state.status.code == 'PROCESSING' || this.state.status.code == 'DOWNLOADING' || this.state.status.code == 'COMPLETE'){
             console.log('no foreground process to run');
@@ -1067,12 +1083,6 @@ class ReviewParser{
 
 var parser;
 
-window.beforeunload = function(e){
-    var confirmationMessage = 'Scraping is going on. Leaving page might disrupt scraper performance.';
-
-    (e || window.event).returnValue = confirmationMessage;  //Gecko + IE
-    return confirmationMessage;                             //Gecko + Webkit, Safari, Chrome etc.
-}
 
 window.onload = function(){
     console.log("loaded content script");

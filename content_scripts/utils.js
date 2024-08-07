@@ -19,7 +19,8 @@ const STATE_PATHNAME_VERIFIER_MAP = {
         return window.location.pathname.endsWith('.html');
     }
 }
-const SUPPORTED_SCRAPERS = ['things to do', 'hotel', 'restaurant']
+// const SUPPORTED_SCRAPERS = ['things to do', 'hotel', 'restaurant']
+const SUPPORTED_SCRAPERS = ['hotel']
 
 
 function sleep(time){
