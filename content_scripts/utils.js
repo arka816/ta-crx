@@ -19,8 +19,7 @@ const STATE_PATHNAME_VERIFIER_MAP = {
         return window.location.pathname.endsWith('.html');
     }
 }
-// const SUPPORTED_SCRAPERS = ['things to do', 'hotel', 'restaurant']
-const SUPPORTED_SCRAPERS = ['hotel']
+const SUPPORTED_SCRAPERS = ['things to do', 'hotel', 'restaurant']
 
 
 function sleep(time){
@@ -108,4 +107,13 @@ function downloadFile(data) {
     link.click();
 
     document.body.removeChild(link);
+}
+
+function alertExit(e){
+    (e || window.event).preventDefault();
+
+    var confirmationMessage = 'Scraping is going on. Leaving page might disrupt scraper performance.';
+
+    (e || window.event).returnValue = confirmationMessage;  //Gecko + IE
+    return confirmationMessage;                             //Gecko + Webkit, Safari, Chrome etc.
 }

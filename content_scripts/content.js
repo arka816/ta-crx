@@ -115,6 +115,7 @@ class ReviewParser{
         })
         .then(() => {
             // RELOAD event: redirect to search page
+            window.removeEventListener('beforeunload', alertExit);
             window.location = `https://www.tripadvisor.in/Search?q=${this.keyword}`;
         })
     }
@@ -189,6 +190,7 @@ class ReviewParser{
         this.clearState().then(
             () => {
                 alert(errMsg);
+                window.removeEventListener('beforeunload', alertExit);
                 window.location = ALLOWED_HOMEPAGE_LOCATIONS[0];
             }
         );
@@ -272,11 +274,11 @@ class ReviewParser{
         }
         await this.saveState();
 
+        window.removeEventListener('beforeunload', alertExit);
         window.location = this.placeUrls[0].url;
     }
 
     async updateOutput(){
-        alert(`updating output ${this.currentReviewsCount} ${this.currentReviews.length} ${this.maxReviews}`)
         // update output array with review outputs from current place
         let placeObj = {
             name: this.placeUrls[this.currentPlace].placeName,
@@ -321,9 +323,11 @@ class ReviewParser{
 
             await this.updateNextAction();
 
+            window.removeEventListener('beforeunload', alertExit);
             window.location = this.state.host;
         }
         else{
+            window.removeEventListener('beforeunload', alertExit);
             window.location = this.placeUrls[this.currentPlace].url;
         }
     }
@@ -464,6 +468,7 @@ class ReviewParser{
             var newParams = {offset: offset + PLACES_PER_PAGE};
             var url = setUrlParams(window.location.href, newParams);
 
+            window.removeEventListener('beforeunload', alertExit);
             window.location = url;
         }
     }
@@ -583,7 +588,7 @@ class ReviewParser{
 
             // expand full review text
             if (readMoreBtn !== null && readMoreBtn.innerText.trim().toLowerCase() == 'read more') {
-                readMoreBtn.click();
+                // readMoreBtn.click();
             }
 
             try{
@@ -661,7 +666,6 @@ class ReviewParser{
 
     async scrapeHotelReviews(){
         // edge case: places count already exceeded max places input
-        alert(`${this.currentReviewsCount} ${this.currentReviews.length} ${this.maxReviews}`)
         if (this.currentReviewsCount >= this.maxReviews) {
             await this.updateOutput();
             this.switchPlace();
@@ -1038,12 +1042,7 @@ class ReviewParser{
 
     async start(){
         // unload alert
-        window.beforeunload = function(e){
-            var confirmationMessage = 'Scraping is going on. Leaving page might disrupt scraper performance.';
-        
-            (e || window.event).returnValue = confirmationMessage;  //Gecko + IE
-            return confirmationMessage;                             //Gecko + Webkit, Safari, Chrome etc.
-        }
+        window.addEventListener('beforeunload', alertExit);
 
         // verify if process is running
         if (this.state.status.code == 'PROCESSING' || this.state.status.code == 'DOWNLOADING' || this.state.status.code == 'COMPLETE'){
