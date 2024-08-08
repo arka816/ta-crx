@@ -33,8 +33,8 @@ function disconnect() {
     webSocket.close(1000);
 }
 
-async function serverJobFinished(message){
-    var response = await chrome.storage.local.get('state');
+async function serverJobFinished(tabId, message){
+    var response = await chrome.storage.local.get(tabId);
     var state = JSON.parse(response.state);
 
     state.status = {
@@ -43,7 +43,7 @@ async function serverJobFinished(message){
     };
     state.output = [];
 
-    chrome.storage.local.set({'state': JSON.stringify(state)});
+    chrome.storage.local.set({[tabId]: JSON.stringify(state)});
 }
 
 function keepAlive() {
@@ -69,7 +69,7 @@ function socketError(callback){
     });
 }
 
-function handleDownload(serverPayload, callback) {
+function handleDownload(tabId, serverPayload, callback) {
     try{
         webSocket = new WebSocket(serverUrl);
     }
@@ -102,7 +102,7 @@ function handleDownload(serverPayload, callback) {
             callback(message);            
         }
         else if (message.type == 'COMPLETE'){
-            serverJobFinished(message.message);
+            serverJobFinished(tabId, message.message);
             disconnect();
         }
     };
@@ -124,7 +124,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             inputs: searchInputs,
             output: scraperOutput
         };
-        handleDownload(serverPayload, sendResponse);
+        handleDownload(sender.tab.id, serverPayload, sendResponse);
     }
     return true;
 })
@@ -133,7 +133,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 /************* return tab id to content script (purpose: concurrent jobs) ************/
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === "tab-id") {
-        sendResponse({ tabId: sender.tab.id });
+        sendResponse({tabId: sender.tab.id});
     }
 });
 

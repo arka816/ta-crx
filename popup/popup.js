@@ -15,11 +15,11 @@ function setStatus(status){
     statusElem.innerHTML = status;
 }
 
-function checkStatus(){
-    chrome.storage.local.get({'state': null}).then(({state}) => {
-        state = JSON.parse(state);
+function checkStatus(tabId){
+    chrome.storage.local.get({tabId: null}).then((result) => {
+        if (result[tabId] !== null) {
+            var state = JSON.parse(result[tabId]);
 
-        if (state !== null) {
             let {code, message} = state.status;
     
             active = (code == 'COMPLETE');
@@ -30,22 +30,29 @@ function checkStatus(){
     });
 }
 
-function loadUI(){
-    chrome.storage.local.get({'state': null}).then(({state}) => {
-        state = JSON.parse(state);
+function loadUI(tabId){
+    chrome.storage.local.get({tabId: null}).then((result) => {
+        if (result[tabId] !== null) {
+            var state = JSON.parse(result[tabId]);
 
-        if (state !== null) {
             let {keyword, maxPlaces, maxReviews, saveImages} = state.inputs;
 
             kwInputElem.value = keyword ?? '';
             maxPlacesElem.value = maxPlaces ?? '';
             maxReviewsElem.value = maxReviews ?? '';
-            saveImagesElem.checked = saveImages;
+            saveImagesElem.checked = saveImages ?? false;
         }
     });
 }
 
-window.onload = function(){
+async function getTabId(){
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    return tab.id;
+}
+
+window.onload = async function(){
+    const tabId = await getTabId();
+
     checkStatus();
     loadUI();
 
@@ -54,32 +61,31 @@ window.onload = function(){
     });
     
     kwInputBtn.addEventListener("click", async (e) => {
-        await chrome.storage.local.clear();
+        await chrome.storage.local.remove(tabId);
 
         var keyword = kwInputElem.value;
         var maxPlaces = parseInt(maxPlacesElem.value) || DEFAULT_MAX_PLACES;
         var maxReviews = parseInt(maxReviewsElem.value) || DEFAULT_MAX_REVIEWS;
         var saveImages = saveImagesElem.checked;
     
-        sendInputs(keyword, maxPlaces, maxReviews, saveImages);
+        sendInputs(tabId, keyword, maxPlaces, maxReviews, saveImages);
     });
 
     resetBtn.addEventListener("click", async () => {
-        await chrome.storage.local.clear();
+        await chrome.storage.local.remove(tabId);
         setStatus('reset state');
     })
 }
 
 
 
-async function sendInputs(keyword, maxPlaces=1, maxReviews=10, saveImages=true){
+async function sendInputs(tabId, keyword, maxPlaces=1, maxReviews=10, saveImages=true){
     // send inputs to content script for it to execute
     // NOTE: actionId must be 1
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
 
     try{
         let response = await chrome.tabs.sendMessage(
-            tab.id, 
+            tabId, 
             {
                 actionId: 1,
                 inputs: {

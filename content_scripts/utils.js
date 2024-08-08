@@ -129,7 +129,7 @@ function sendMessageAsync(message) {
     });
 }
 
-function getTabId(){
+async function getTabId(){
     try {
         const response = await sendMessageAsync({action: "tab-id"});
     } 

@@ -8,7 +8,9 @@
 */
 
 class ReviewParser{
-    constructor(state){
+    constructor(tabId, state){
+        this.tabId = tabId;
+
         this.state = state;
         this.actionId = state.actionId;
 
@@ -74,11 +76,11 @@ class ReviewParser{
 
     saveState(){
         // utility to save scraper state
-        return chrome.storage.local.set({state: JSON.stringify(this.state)});
+        return chrome.storage.local.set({[this.tabId]: JSON.stringify(this.state)});
     }
 
     clearState(){
-        return chrome.storage.local.clear();
+        return chrome.storage.local.remove(this.tabId);
     }
 
     updateNextAction(){
@@ -1083,10 +1085,10 @@ class ReviewParser{
 var parser;
 
 
-window.onload = function(){
+window.onload = async function(){
     console.log("loaded content script");
 
-    const tabId = getTabId();
+    const tabId = await getTabId();
 
     console.log("tab id:", tabId);
 
@@ -1118,8 +1120,8 @@ window.onload = function(){
                         output: []
                     }
                     sendResponse({type: 'ACK'});
-                    chrome.storage.local.set({state: JSON.stringify(state)}).then(() => {
-                        parser = new ReviewParser(state);
+                    chrome.storage.local.set({[tabId]: JSON.stringify(state)}).then(() => {
+                        parser = new ReviewParser(tabId, state);
                     })
                 }
                 else{
@@ -1132,12 +1134,12 @@ window.onload = function(){
     );
 
     // get state from chrome.storage API
-    chrome.storage.local.get({'state': null}).then((result) => {
-        if (result.state === null) return;
+    chrome.storage.local.get({tabId: null}).then((result) => {
+        if (result[tabId] === null) return;
 
-        var state = JSON.parse(result.state);
-
+        var state = JSON.parse(result[tabId]);
         console.log(state);
-        parser = new ReviewParser(state);
+
+        parser = new ReviewParser(tabId, state);
     });
 }
