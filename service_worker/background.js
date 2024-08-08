@@ -128,3 +128,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return true;
 })
+
+
+/************* return tab id to content script (purpose: concurrent jobs) ************/
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.action === "tab-id") {
+        sendResponse({ tabId: sender.tab.id });
+    }
+});
+

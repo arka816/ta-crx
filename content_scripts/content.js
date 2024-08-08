@@ -189,9 +189,9 @@ class ReviewParser{
         // TODO: more sophisticated
         this.clearState().then(
             () => {
-                alert(errMsg);
                 window.removeEventListener('beforeunload', alertExit);
-                window.location = ALLOWED_HOMEPAGE_LOCATIONS[0];
+                alert(errMsg);
+                window.location = this.state.host;
             }
         );
     }
@@ -1041,9 +1041,6 @@ class ReviewParser{
     }
 
     async start(){
-        // unload alert
-        window.addEventListener('beforeunload', alertExit);
-
         // verify if process is running
         if (this.state.status.code == 'PROCESSING' || this.state.status.code == 'DOWNLOADING' || this.state.status.code == 'COMPLETE'){
             console.log('no foreground process to run');
@@ -1054,8 +1051,11 @@ class ReviewParser{
         const verifier = STATE_PATHNAME_VERIFIER_MAP[this.actionId] ?? function(){return true}
         if (! verifier()){
             // send error
-            this.notifyError("url does not match scraper's current action")
+            this.notifyError("url does not match scraper's current action");
         }
+
+        // unload alert
+        window.addEventListener('beforeunload', alertExit);
 
         switch(this.actionId){
             case 1:
@@ -1085,6 +1085,12 @@ var parser;
 
 window.onload = function(){
     console.log("loaded content script");
+
+    const tabId = getTabId();
+
+    console.log("tab id:", tabId);
+
+    // TODO: add error handling for null tab id
 
     chrome.runtime.onMessage.addListener(
         function(msg, sender, sendResponse) {

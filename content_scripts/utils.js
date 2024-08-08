@@ -117,3 +117,26 @@ function alertExit(e){
     (e || window.event).returnValue = confirmationMessage;  //Gecko + IE
     return confirmationMessage;                             //Gecko + Webkit, Safari, Chrome etc.
 }
+
+function sendMessageAsync(message) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(message, (response) => {
+            if (chrome.runtime.lastError) {
+                return reject(chrome.runtime.lastError);
+            }
+            resolve(response);
+        });
+    });
+}
+
+function getTabId(){
+    try {
+        const response = await sendMessageAsync({action: "tab-id"});
+    } 
+    catch (error) {
+        return null;
+    }
+    finally {
+        return response.tabId;
+    }
+}
