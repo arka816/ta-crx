@@ -22,6 +22,8 @@ class ScraperProcessor:
         self.create_folder_structure()
 
     def create_folder_structure(self):
+        # TODO: add cleansing for keyword
+        
         self.base_dir = os.path.join(self.output_dir, self.inputs['keyword'])
         os.makedirs(self.base_dir, exist_ok=True)
 
@@ -114,6 +116,9 @@ class ScraperProcessor:
         image_dfs = []
 
         for place_item in self.output:
+            if len(place_item['reviews']) == 0:
+                continue
+
             review_df = pd.DataFrame(place_item['reviews'])
             review_df['place_name'] = place_item['name']
             review_df['place_type'] = place_item['placeType']

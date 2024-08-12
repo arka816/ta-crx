@@ -119,7 +119,7 @@ class ReviewParser{
         })
         .then(() => {
             // RELOAD event: redirect to search page
-            window.removeEventListener('beforeunload', alertExit);
+            // window.removeEventListener('beforeunload', alertExit);
             window.location = `https://www.tripadvisor.in/Search?q=${this.keyword}`;
         })
     }
@@ -193,7 +193,7 @@ class ReviewParser{
         // TODO: more sophisticated
         this.clearState().then(
             () => {
-                window.removeEventListener('beforeunload', alertExit);
+                // window.removeEventListener('beforeunload', alertExit);
                 alert(errMsg);
                 window.location = this.state.host;
             }
@@ -278,7 +278,7 @@ class ReviewParser{
         }
         await this.saveState();
 
-        window.removeEventListener('beforeunload', alertExit);
+        // window.removeEventListener('beforeunload', alertExit);
         window.location = this.placeUrls[0].url;
     }
 
@@ -327,11 +327,11 @@ class ReviewParser{
 
             await this.updateNextAction();
 
-            window.removeEventListener('beforeunload', alertExit);
+            // window.removeEventListener('beforeunload', alertExit);
             window.location = this.state.host;
         }
         else{
-            window.removeEventListener('beforeunload', alertExit);
+            // window.removeEventListener('beforeunload', alertExit);
             window.location = this.placeUrls[this.currentPlace].url;
         }
     }
@@ -401,7 +401,6 @@ class ReviewParser{
 
         // scrape urls from places to go / things to do items in current page
         if (! await wait(this.placesContainerExists, 500, 10*1000)){
-            alert("places container not found")
             if (this.placesCount == 0){
                 // send error
                 this.notifyError("container for places not found");
@@ -475,7 +474,7 @@ class ReviewParser{
             var newParams = {offset: offset + PLACES_PER_PAGE};
             var url = setUrlParams(window.location.href, newParams);
 
-            window.removeEventListener('beforeunload', alertExit);
+            // window.removeEventListener('beforeunload', alertExit);
             window.location = url;
         }
     }
@@ -613,7 +612,7 @@ class ReviewParser{
                 let images = imageContainer.querySelectorAll('div > button > span > picture > img');
 
                 for (let image of images) {
-                    let imgSrcSet = image.getAttribute('srcset');
+                    let imgSrcSet = image.getAttribute('srcset') ?? image.getAttribute('src');
                     imageSources.push(parseSrcSet(imgSrcSet));
                 }
             }
@@ -776,7 +775,7 @@ class ReviewParser{
                 let images = imageContainer.querySelectorAll('div > picture > img');
 
                 for (let image of images) {
-                    let imgSrcSet = image.getAttribute('src');
+                    let imgSrcSet = image.getAttribute('srcset') ?? image.getAttribute('src');
                     imageSources.push(parseSrcSet(imgSrcSet));
                 }
             }
@@ -1062,7 +1061,7 @@ class ReviewParser{
         }
 
         // unload alert
-        window.addEventListener('beforeunload', alertExit);
+        // window.addEventListener('beforeunload', alertExit);
 
         switch(this.actionId){
             case 1:
