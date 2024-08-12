@@ -35,7 +35,8 @@ async def handler(socket):
         try:
             message = await socket.recv()
         except ConnectionClosedOK:
-            continue
+            # passive server. message handler loop breaks only when client disconnects.
+            break
 
         # process message
         message = json.loads(message)
@@ -62,13 +63,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
-    # test
-    # inputs = {
-    #     'keyword': 'darjeeling',
-    #     'saveImages': True
-    # }
-    # output = json.load(open('data.json'))
-
-    # processor = ScraperProcessor(inputs, output, output_dir, print)
-    # processor.process()

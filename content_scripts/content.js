@@ -20,6 +20,8 @@ class ReviewParser{
         this.output = state.output;
 
         this.placesCount = state.state.placesCount ?? 0;
+        this.placesViewedCount = state.state.placesViewedCount ?? 0;
+        this.maxPlacesAvailable = state.state.maxPlacesAvailable ?? Infinity;
         this.placeUrls = state.state.placeUrls ?? [];
 
         this.currentPlace = state.state.currentPlace ?? null;
@@ -93,6 +95,8 @@ class ReviewParser{
             state: {
                 ...this.state.state, 
                 placesCount: this.placesCount,
+                placesViewedCount: this.placesViewedCount,
+                maxPlacesAvailable: this.maxPlacesAvailable,
                 placeUrls: this.placeUrls
             }
         }
@@ -168,7 +172,7 @@ class ReviewParser{
             return;
         }
         finally{
-            this.maxPlaces = Math.min(placeResultsCount, this.maxPlaces);
+            this.maxPlacesAvailable = placeResultsCount;
         }
     }
 
@@ -391,12 +395,13 @@ class ReviewParser{
 
     async scrapePlaces(){
         // edge case: places count already exceeded max places input
-        if (this.placesCount >= this.maxPlaces) {
+        if ((this.placesCount >= this.maxPlaces) || (this.placesViewedCount >= this.maxPlacesAvailable)) {
             await this.placesFinished();
         }
 
         // scrape urls from places to go / things to do items in current page
         if (! await wait(this.placesContainerExists, 500, 10*1000)){
+            alert("places container not found")
             if (this.placesCount == 0){
                 // send error
                 this.notifyError("container for places not found");
@@ -447,7 +452,9 @@ class ReviewParser{
                 }
             }
 
-            if (this.placesCount >= this.maxPlaces) {
+            this.placesViewedCount++;
+
+            if ((this.placesCount >= this.maxPlaces) || (this.placesViewedCount >= this.maxPlacesAvailable)) {
                 finished = true;
                 break;
             }
@@ -1086,9 +1093,9 @@ var parser;
 window.onload = function(){
     console.log("loaded content script");
 
-    const tabId = getTabId();
+    // const tabId = getTabId();
 
-    console.log("tab id:", tabId);
+    // console.log("tab id:", tabId);
 
     // TODO: add error handling for null tab id
 
