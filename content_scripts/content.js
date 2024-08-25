@@ -34,6 +34,7 @@ class ReviewParser{
         this.clearState = this.clearState.bind(this);
         this.updateNextAction = this.updateNextAction.bind(this);
         this.updatePlaces = this.updatePlaces.bind(this);
+        this.updatePlaceCoords = this.updatePlaceCoords.bind(this);
         this.updateStatus = this.updateStatus.bind(this);
         this.notifyError = this.notifyError.bind(this);
         this.search = this.search.bind(this);
@@ -43,6 +44,8 @@ class ReviewParser{
         this.scrapePlaces = this.scrapePlaces.bind(this);
         this.placesFinished = this.placesFinished.bind(this);
         this.scrapeReviews = this.scrapeReviews.bind(this);
+        this.scrapeHotelReviews = this.scrapeHotelReviews.bind(this);
+        this.scrapeRestaurantReviews = this.scrapeRestaurantReviews.bind(this);
         this.switchPlace = this.switchPlace.bind(this);
         this.updateOutput = this.updateOutput.bind(this);
         this.scrapeReviewsWrap = this.scrapeReviewsWrap.bind(this);
@@ -50,6 +53,10 @@ class ReviewParser{
         this.swipeHotelReview = this.swipeHotelReview.bind(this);
         this.swipeRestaurantReview = this.swipeRestaurantReview.bind(this);
         this.sendToServer = this.sendToServer.bind(this);
+
+        // setInterval(function(){
+        //     console.clear();
+        // }, 5 * 60 * 1000); // clear console every 5 minutes
 
         this.start();
     }
@@ -76,7 +83,14 @@ class ReviewParser{
 
     saveState(){
         // utility to save scraper state
-        return chrome.storage.local.set({state: JSON.stringify(this.state)});
+        return chrome.storage.local.set({
+            state: JSON.stringify(
+                this.state,
+                function (key, value) {
+                    return value === Infinity ? "Infinity" : value;
+                }
+            )
+        });
     }
 
     clearState(){
@@ -97,6 +111,19 @@ class ReviewParser{
                 placesCount: this.placesCount,
                 placesViewedCount: this.placesViewedCount,
                 maxPlacesAvailable: this.maxPlacesAvailable,
+                placeUrls: this.placeUrls
+            }
+        }
+        return this.saveState();
+    }
+
+    updatePlaceCoords(coords){
+        this.placeUrls[this.currentPlace].placeCoords = coords;
+
+        this.state = {
+            ...this.state, 
+            state: {
+                ...this.state.state,
                 placeUrls: this.placeUrls
             }
         }
@@ -141,12 +168,14 @@ class ReviewParser{
 
     reviewsContainerExists(){
         // utility to search for reviews container
-        return exists('div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
+        // return exists('div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
+        return exists('div#tab-review-content > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
     }
 
     hotelReviewsContainerExists(){
         // utility to search for reviews container for hotel pages
-        return exists('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div.azLzJ');
+        // return exists('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div.azLzJ');
+        return exists('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div > div.azLzJ');
     }
 
     restaurantReviewsContainerExists(){
@@ -160,11 +189,10 @@ class ReviewParser{
 
     async setMaxPlacesCount(){
         // util to get count of places returned by search
-        // set maxPlaces to minimum of user set and available
         try{
             if (await wait(this.placeCountContainerExists, 500, 10*1000)){
                 var placeResultsCountText = document.querySelector('div.uYzlj > div.biGQs > div.Ci').innerText;
-                var placeResultsCount = parseInt(placeResultsCountText.split(' ').at(-1));
+                var placeResultsCount = parseInt(placeResultsCountText.split(' ').at(-1).replaceAll(',', ''));
             }
         }
         catch(e){
@@ -243,9 +271,6 @@ class ReviewParser{
             // expand by clicking on show more button
             await this.expandReviewsContainer();
 
-            // update places count
-            await this.setMaxPlacesCount();
-
             // update state
             await this.updateNextAction();
 
@@ -288,6 +313,8 @@ class ReviewParser{
             name: this.placeUrls[this.currentPlace].placeName,
             url: this.placeUrls[this.currentPlace].url,
             placeType: this.placeUrls[this.currentPlace].placeType,
+            placeLocation: this.placeUrls[this.currentPlace].placeLocation,
+            placeCoords: this.placeUrls[this.currentPlace].placeCoords,
             reviews: this.currentReviews
         }
 
@@ -338,13 +365,43 @@ class ReviewParser{
 
     async swipeReview(){
         // handler to swipe to next review page
+        // var nextReviewBtn = document.querySelector(
+        //     `div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]:last-child > 
+        //     div:nth-child(2) > div > div.OvVFl.j > div.xkSty > div.UCacc > a`
+        // )
         var nextReviewBtn = document.querySelector(
-            `div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]:last-child > 
+            `div#tab-review-content > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]:last-child > 
             div:nth-child(2) > div > div.OvVFl.j > div.xkSty > div.UCacc > a`
         )
 
         if (nextReviewBtn !== null){
+            var scraperCalled = false;
+
+            const scrollEndCaller = async function(){
+                window.removeEventListener('scrollend', scrollEndCaller);
+
+                if (!scraperCalled) {
+                    console.log('scroll end detected. calling scraper.');
+
+                    scraperCalled = true;
+                    await this.scrapeReviews();
+                }
+            }
+            window.addEventListener('scrollend', scrollEndCaller.bind(this));
+
             nextReviewBtn.click();
+
+            const timeoutCaller = async function(){
+                if (!scraperCalled) {
+                    console.log('scroll end not detected. calling scraper after waiting for 1 second.');
+
+                    scraperCalled = true;
+                    await this.scrapeReviews();
+                }
+            }
+
+            // fallback plan in case scroll end event was not captured
+            setTimeout(timeoutCaller.bind(this), 1000);
         }
         else {
             console.log('no more review pages');
@@ -363,7 +420,33 @@ class ReviewParser{
         )
 
         if (nextReviewBtn !== null) {
+            var scraperCalled = false;
+
+            const scrollEndCaller = async function(){
+                window.removeEventListener('scrollend', scrollEndCaller);
+
+                if (!scraperCalled) {
+                    console.log('scroll end detected. calling scraper.');
+
+                    scraperCalled = true;
+                    await this.scrapeHotelReviews();
+                }
+            }
+            // window.addEventListener('scrollend', scrollEndCaller.bind(this));
+
             nextReviewBtn.click();
+
+            const timeoutCaller = async function(){
+                if (!scraperCalled) {
+                    console.log('scroll end not detected. calling scraper after waiting for 1 second.');
+
+                    scraperCalled = true;
+                    await this.scrapeHotelReviews();
+                }
+            }
+
+            // fallback plan in case scroll end event was not captured
+            setTimeout(timeoutCaller.bind(this), 1000);
         }
         else {
             console.log('no more review pages');
@@ -382,7 +465,33 @@ class ReviewParser{
         )
 
         if (nextReviewBtn !== null) {
+            var scraperCalled = false;
+
+            const scrollEndCaller = async function(){
+                window.removeEventListener('scrollend', scrollEndCaller);
+
+                if (!scraperCalled) {
+                    console.log('scroll end detected. calling scraper.');
+
+                    scraperCalled = true;
+                    await this.scrapeRestaurantReviews();
+                }
+            }
+            window.addEventListener('scrollend', scrollEndCaller.bind(this));
+
             nextReviewBtn.click();
+
+            const timeoutCaller = async function(){
+                if (!scraperCalled) {
+                    console.log('scroll end not detected. calling scraper after waiting for 1 second.');
+
+                    scraperCalled = true;
+                    await this.scrapeRestaurantReviews();
+                }
+            }
+
+            // fallback plan in case scroll end event was not captured
+            setTimeout(timeoutCaller.bind(this), 1000);
         }
         else {
             console.log('no more review pages');
@@ -391,6 +500,60 @@ class ReviewParser{
             await this.updateOutput();
             this.switchPlace();
         }
+    }
+
+    async getLocation(){
+        let selector = '#tab-data-WebPresentation_PoiLocationSectionGroup > div > div > div.AcNPX.A > div.gptQH > div > div > div > button > span[data-test-target="staticMapSnapshot"] > img';
+
+        if (await wait(function(){return exists(selector)}, 500, 10*1000)){
+            let staticMapImg = document.querySelector(selector);
+
+            if (staticMapImg !== null) {
+                return parseStaticMapUrl(staticMapImg.getAttribute('src'));
+            }
+            else{
+                return {};
+            }
+        }
+        else{
+            return {};
+        }        
+    }
+
+    async getHotelLocation(){
+        let selector = '#LOCATION div.ADOxT.o._S > span[data-test-target="staticMapSnapshot"] > img';
+
+        if (await wait(function(){return exists(selector)}, 500, 10*1000)){
+            let staticMapImg = document.querySelector(selector);
+
+            if (staticMapImg !== null) {
+                return parseStaticMapUrl(staticMapImg.getAttribute('src'));
+            }
+            else{
+                return {};
+            }
+        }
+        else{
+            return {};
+        }    
+    }
+
+    async getRestaurantLocation(){
+        let selector = 'div[data-automation="OVERVIEW_TAB_ELEMENT"] > div.Zb.w > span > div.f.e.Q3 > button > span[data-test-target="staticMapSnapshot"] > img';
+
+        if (await wait(function(){return exists(selector)}, 500, 10*1000)){
+            let staticMapImg = document.querySelector(selector);
+
+            if (staticMapImg !== null) {
+                return parseStaticMapUrl(staticMapImg.getAttribute('src'));
+            }
+            else{
+                return {};
+            }
+        }
+        else{
+            return {};
+        }    
     }
 
     async scrapePlaces(){
@@ -420,6 +583,9 @@ class ReviewParser{
 
         await scrollToBottom();
 
+        // update places count
+        await this.setMaxPlacesCount();
+
         var placeItems = this.getElementsByXpath("//div[contains(@class, 'SVuzf')]/div/div[contains(@class, 'kgrOn')]/a[1]");
         var finished = false;
 
@@ -440,12 +606,17 @@ class ReviewParser{
             let placeNameContainer = placeItem.querySelector("div > div.yJIls.z.y > header > div > div > div.biGQs._P.fiohW.ngXxk > a");
             let placeName = placeNameContainer.innerText.toLowerCase();
 
+            // get place location
+            let placeLocationContainer = placeItem.querySelector("div > div.yJIls.z.y > header > div > div > span.biGQs._P.fiohW.hmDzD > div.biGQs._P.pZUbB.xARtZ.hmDzD");
+            let placeLocation = placeLocationContainer.innerText.toLowerCase();
+
             if (url !== undefined && url !== null){
                 if (SUPPORTED_SCRAPERS.includes(placeType)){
                     this.placeUrls.push({
                         url: url,
                         placeType: placeType,
-                        placeName: placeName
+                        placeName: placeName,
+                        placeLocation: placeLocation
                     });
                     this.placesCount++;
                 }
@@ -483,14 +654,33 @@ class ReviewParser{
         // wrapper function that calls one of the scrapers depending on placetype
         var placeType = this.placeUrls[this.currentPlace].placeType;
 
+        await this.updateStatus({
+            code: 'RUNNING',
+            message: `scraping reviews for place ${this.currentPlace + 1}/${this.placesCount}`
+        })
+
         if(!SUPPORTED_SCRAPERS.includes(placeType)){
             alert(`scraping for ${placeType} is not supported yet`)
             await this.switchPlace();
         }
         else {
-            if(placeType == 'things to do') await this.scrapeReviews();
-            else if(placeType == 'hotel') await this.scrapeHotelReviews();
-            else if(placeType == 'restaurant') await this.scrapeRestaurantReviews();
+            switch(placeType){
+                case 'things to do':
+                    await this.updatePlaceCoords(await this.getLocation());
+                    await this.scrapeReviews();
+                    break;
+                case 'hotel':
+                    await this.updatePlaceCoords(await this.getHotelLocation());
+                    await this.scrapeHotelReviews();
+                    break;
+                case 'restaurant':
+                    await this.updatePlaceCoords(await this.getRestaurantLocation());
+                    await this.scrapeRestaurantReviews();
+                    break;
+            }
+            // if(placeType == 'things to do') await this.scrapeReviews();
+            // else if(placeType == 'hotel') await this.scrapeHotelReviews();
+            // else if(placeType == 'restaurant') await this.scrapeRestaurantReviews();
         }
     }
 
@@ -499,6 +689,8 @@ class ReviewParser{
         if (this.currentReviewsCount >= this.maxReviews) {
             await this.updateOutput();
             this.switchPlace();
+
+            return;
         }
 
         await scrollToBottom();
@@ -516,15 +708,13 @@ class ReviewParser{
 
             // switch to next place
             await this.switchPlace();
-        }
-        else {
-            await this.updateStatus({
-                code: 'RUNNING',
-                message: 'scraping reviews...'
-            })
+
+            return;
         }
 
-        var reviewItems = document.querySelectorAll('div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
+
+        // var reviewItems = document.querySelectorAll('div#tab-data-qa-reviews-0 > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
+        var reviewItems = document.querySelectorAll('div#tab-review-content > div.eSDnY > div.LbPSX > div > div[data-automation="tab"]');
         var finished = false;
 
         for (let reviewItem of reviewItems) {
@@ -664,9 +854,6 @@ class ReviewParser{
             // switch to next review page
             // or if no more reviews switch to next place
             await this.swipeReview();
-
-            // call this function recursively
-            await this.scrapeReviews();
         }
     }
 
@@ -675,6 +862,8 @@ class ReviewParser{
         if (this.currentReviewsCount >= this.maxReviews) {
             await this.updateOutput();
             this.switchPlace();
+
+            return;
         }
 
         await scrollToBottom();
@@ -692,15 +881,12 @@ class ReviewParser{
 
             // switch to next place
             await this.switchPlace();
-        }
-        else {
-            await this.updateStatus({
-                code: 'RUNNING',
-                message: 'scraping reviews...'
-            })
+
+            return;
         }
 
-        var reviewItems = document.querySelectorAll('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div.azLzJ');
+        // var reviewItems = document.querySelectorAll('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div.azLzJ');
+        var reviewItems = document.querySelectorAll('div[data-test-target="reviews-tab"] > div.ruCQl > div.uqMDf > div > div.azLzJ');
         var finished = false;
 
         for (let reviewItem of reviewItems) {
@@ -827,9 +1013,6 @@ class ReviewParser{
             // switch to next review page
             // or if no more reviews switch to next place
             await this.swipeHotelReview();
-
-            // call this function recursively
-            await this.scrapeHotelReviews();
         }
     }
 
@@ -838,6 +1021,8 @@ class ReviewParser{
         if (this.currentReviewsCount >= this.maxReviews) {
             await this.updateOutput();
             this.switchPlace();
+
+            return;
         }
 
         await scrollToBottom();
@@ -855,12 +1040,8 @@ class ReviewParser{
 
             // switch to next place
             await this.switchPlace();
-        }
-        else {
-            await this.updateStatus({
-                code: 'RUNNING',
-                message: 'scraping reviews...'
-            })
+
+            return;
         }
 
         var reviewItems = document.querySelectorAll('section#REVIEWS > div.iTazX > div.zyBif > div > div > div.JmLZe > div > div');
@@ -1001,9 +1182,6 @@ class ReviewParser{
             // switch to next review page
             // or if no more reviews switch to next place
             await this.swipeRestaurantReview();
-
-            // call this function recursively
-            await this.scrapeRestaurantReviews();
         }
     }
 
@@ -1105,12 +1283,16 @@ window.onload = function(){
                 window.location = ALLOWED_HOMEPAGE_LOCATIONS[0];
             }
 
-            console.log(msg);
+
             if (msg.actionId === null) return;
             else if (msg.actionId == 1){
                 // initial action => requires inputs
                 if ('keyword' in msg.inputs && 'maxPlaces' in msg.inputs &&
                     'maxReviews' in msg.inputs && 'saveImages' in msg.inputs){
+                    // look for Infinity in max places or max reviews
+                    if (msg.inputs.maxPlaces == 'Infinity')  msg.inputs.maxPlaces = Infinity;
+                    if (msg.inputs.maxReviews == 'Infinity') msg.inputs.maxReviews = Infinity;
+
                     // init state variable
                     var state = {
                         actionId: msg.actionId,
@@ -1123,8 +1305,17 @@ window.onload = function(){
                         host: window.location.href,
                         output: []
                     }
+
                     sendResponse({type: 'ACK'});
-                    chrome.storage.local.set({state: JSON.stringify(state)}).then(() => {
+
+                    chrome.storage.local.set({
+                        state: JSON.stringify(
+                            state,
+                            function (key, value) {
+                                return value === Infinity ? "Infinity" : value;
+                            }
+                        )
+                    }).then(() => {
                         parser = new ReviewParser(state);
                     })
                 }
@@ -1141,7 +1332,12 @@ window.onload = function(){
     chrome.storage.local.get({'state': null}).then((result) => {
         if (result.state === null) return;
 
-        var state = JSON.parse(result.state);
+        var state = JSON.parse(
+            result.state,
+            function (key, value) {
+                return value === "Infinity" ? Infinity : value;
+            }
+        );
 
         console.log(state);
         parser = new ReviewParser(state);

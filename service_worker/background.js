@@ -35,7 +35,12 @@ function disconnect() {
 
 async function serverJobFinished(message){
     var response = await chrome.storage.local.get('state');
-    var state = JSON.parse(response.state);
+    var state = JSON.parse(
+        response.state,
+        function (key, value) {
+            return value === "Infinity" ? Infinity : value;
+        }
+    );
 
     state.status = {
         code: 'COMPLETE',
@@ -43,7 +48,14 @@ async function serverJobFinished(message){
     };
     state.output = [];
 
-    chrome.storage.local.set({'state': JSON.stringify(state)});
+    chrome.storage.local.set({
+        'state': JSON.stringify(
+            state,
+            function (key, value) {
+                return value === Infinity ? "Infinity" : value;
+            }
+        )
+    });
 }
 
 function keepAlive() {
@@ -88,13 +100,25 @@ function handleDownload(serverPayload, callback) {
             ...serverPayload,
             'type': 'INIT'
         }
-        webSocket.send(JSON.stringify(serverPayload));
+        webSocket.send(
+            JSON.stringify(
+                serverPayload, 
+                function (key, value) {
+                    return value === Infinity ? "Infinity" : value;
+                }
+            )
+        );
 
         keepAlive();
     };
 
     webSocket.onmessage = (event) => {
-        let message = JSON.parse(event.data);
+        let message = JSON.parse(
+            event.data,
+            function (key, value) {
+                return value === "Infinity" ? Infinity : value;
+            }
+        );
 
         console.log('websocket received message:', message);
 
@@ -104,6 +128,9 @@ function handleDownload(serverPayload, callback) {
         else if (message.type == 'COMPLETE'){
             serverJobFinished(message.message);
             disconnect();
+        }
+        else if (message.type == 'ERROR'){
+            socketError(callback);
         }
     };
 

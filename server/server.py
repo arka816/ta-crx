@@ -6,12 +6,13 @@ from websockets.server import serve
 import json
 import sys, os
 from getopt import getopt
+import gc
 from processor import ScraperProcessor
 
 # default
 port = 4567
 output_dir = r'C:\Users\arka\Downloads'
-MAX_SIZE = 128 * (2 ** 20)  # 128 MiB
+MAX_SIZE = 1024 * (2 ** 20)  # 1 GiB
 
 argv = sys.argv[1:] 
   
@@ -42,7 +43,7 @@ async def handler(socket):
         message = json.loads(message)
 
         if message['type'] == 'INIT':
-            # spawn a pid to process scraper data
+            # TODO: spawn a pid to process scraper data
             processor = ScraperProcessor(message['inputs'], message['output'], output_dir, socket.send)
 
             # acknowledge reception of data
@@ -52,13 +53,19 @@ async def handler(socket):
             }
             await socket.send(json.dumps(response))
 
+            # run scraping process asynchronously
             await processor.async_process()
+
+            # release processor instance to free up some memory
+            del processor
+            gc.collect()
         elif message['type'] == 'ECHO':
             await socket.send(json.dumps(message))
         
 
 async def main():
     async with serve(handler, "localhost", port, max_size=MAX_SIZE):
+        print('WS server listening on port:', port)
         await asyncio.Future()
 
 if __name__ == '__main__':

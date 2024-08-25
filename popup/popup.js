@@ -1,5 +1,5 @@
-const DEFAULT_MAX_PLACES = 1;   // TODO: change these later
-const DEFAULT_MAX_REVIEWS = 10;
+const DEFAULT_MAX_PLACES = Infinity;
+const DEFAULT_MAX_REVIEWS = Infinity;
 
 const kwInputElem = document.getElementById("keywordElem");
 const maxPlacesElem = document.getElementById("maxPlacesElem");
@@ -32,7 +32,12 @@ function checkStatus(){
 
 function loadUI(){
     chrome.storage.local.get({'state': null}).then(({state}) => {
-        state = JSON.parse(state);
+        state = JSON.parse(
+            state,
+            function (key, value) {
+                return value === "Infinity" ? null : value;
+            }
+        );
 
         if (state !== null) {
             let {keyword, maxPlaces, maxReviews, saveImages} = state.inputs;
@@ -72,7 +77,7 @@ window.onload = function(){
 
 
 
-async function sendInputs(keyword, maxPlaces=1, maxReviews=10, saveImages=true){
+async function sendInputs(keyword, maxPlaces=DEFAULT_MAX_PLACES, maxReviews=DEFAULT_MAX_REVIEWS, saveImages=true){
     // send inputs to content script for it to execute
     // NOTE: actionId must be 1
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
@@ -84,8 +89,8 @@ async function sendInputs(keyword, maxPlaces=1, maxReviews=10, saveImages=true){
                 actionId: 1,
                 inputs: {
                     keyword: keyword,
-                    maxPlaces: maxPlaces,
-                    maxReviews: maxReviews,
+                    maxPlaces: maxPlaces === Infinity ? 'Infinity' : maxPlaces,     // Infinity in JS is not serializable in JSON
+                    maxReviews: maxReviews === Infinity ? 'Infinity' : maxReviews,  // Infinity in JS is not serializable in JSON
                     saveImages: saveImages
                 }
             }

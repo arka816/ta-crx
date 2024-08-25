@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import os
 import json
 import uuid
@@ -7,6 +10,9 @@ import numpy as np
 import pandas as pd
 import sys
 from getopt import getopt
+from datetime import datetime
+
+from utils import slugify
 
 
 class ScraperProcessor:
@@ -20,6 +26,7 @@ class ScraperProcessor:
         self.callback = callback
 
         self.create_folder_structure()
+        self.generate_filename()
 
     def create_folder_structure(self):
         # TODO: add cleansing for keyword
@@ -30,6 +37,13 @@ class ScraperProcessor:
         if self.inputs['saveImages']:
             self.image_dir = os.path.join(self.base_dir, 'images')
             os.makedirs(self.image_dir, exist_ok=True)
+
+    def generate_filename(self):
+        fname = f'{self.inputs['keyword'].replace(',', ' ')} maxPlaces {self.inputs['maxPlaces']} maxReviews {self.inputs['maxReviews']}'
+        fname = slugify(fname)
+        fname = f'{fname}-{datetime.now().strftime("%d-%m-%Y-%H-%M-%S")}'
+
+        self.fname = fname
 
     def __upgrade_image_url(self, url):
         try:
@@ -110,7 +124,6 @@ class ScraperProcessor:
 
         return df
 
-
     def tabulate_output(self):
         review_dfs = []
         image_dfs = []
@@ -120,9 +133,17 @@ class ScraperProcessor:
                 continue
 
             review_df = pd.DataFrame(place_item['reviews'])
+
             review_df['place_name'] = place_item['name']
+            review_df['place_location'] = place_item['placeLocation']
             review_df['place_type'] = place_item['placeType']
+            
+            review_df['lat'] = place_item['placeCoords'].get('lat', np.nan)
+            review_df['lng'] = place_item['placeCoords'].get('lng', np.nan)
+            review_df[['lat', 'lng']] = review_df[['lat', 'lng']].astype(np.float32)
+
             review_df['url'] = place_item['url']
+
             review_df['review_id'] = [uuid.uuid4() for _ in range(review_df.shape[0])]
 
             image_df = self.tabulate_images(review_df[['review_id', 'images']])
@@ -130,36 +151,52 @@ class ScraperProcessor:
             review_dfs.append(review_df)
             image_dfs.append(image_df)
 
-        review_df = pd.concat(review_dfs)
-        image_df = pd.concat(image_dfs)
+        review_df = pd.concat(review_dfs) if len(review_dfs) > 0 else None
+        image_df = pd.concat(image_dfs) if len(image_dfs) > 0 else None
 
         return review_df, image_df
 
     async def async_process(self):
-        print("processing data...")
+        try:
+            await self._async_process()
+        except:
+            # send back error
+            response = {
+                'type': 'ERROR',
+                'message': 'error in processing. check server console.'
+            }
+            await self.callback(json.dumps(response))
+        else:
+            # send back response
+            response = {
+                'type': 'COMPLETE',
+                'message': 'processing complete'
+            }
+            await self.callback(json.dumps(response))
+
+    async def _async_process(self):
+        print("processing data for keyword:", self.inputs['keyword'])
 
         # dump raw data
-        with open(os.path.join(self.base_dir, 'raw_data.json'), "w") as of:
+        with open(os.path.join(self.base_dir, f'{self.fname}.json'), "w") as of:
             json.dump({"inputs": self.inputs, "output": self.output}, of, indent=4)
 
         # tabulate data
         review_df, image_df = self.tabulate_output()
 
         # download images
-        if self.inputs['saveImages']:
+        if image_df is not None and self.inputs['saveImages']:
             image_df = self.download_images(image_df)
 
         # save data to excel file
-        with pd.ExcelWriter(os.path.join(self.base_dir, 'results.xlsx')) as writer:
-            review_df.to_excel(writer, 'review', index=False)
-            image_df.to_excel(writer, 'images', index=False)
+        if review_df is not None or image_df is not None:
+            with pd.ExcelWriter(os.path.join(self.base_dir, f'{self.fname}.xlsx')) as writer:    
+                if review_df is not None:
+                    review_df.to_excel(writer, 'review', index=False)
+                if image_df is not None:
+                    image_df.to_excel(writer, 'images', index=False)
 
-        # send back response
-        response = {
-            'type': 'COMPLETE',
-            'message': 'processing complete'
-        }
-        await self.callback(json.dumps(response))
+        print('processed data')
 
     def process(self):
         print("processing data...")
@@ -172,7 +209,7 @@ class ScraperProcessor:
             image_df = self.download_images(image_df)
 
         # save data to excel file
-        with pd.ExcelWriter(os.path.join(self.base_dir, 'results.xlsx')) as writer:
+        with pd.ExcelWriter(os.path.join(self.base_dir, f'{self.fname}.xlsx')) as writer:
             review_df.to_excel(writer, 'review', index=False)
             image_df.to_excel(writer, 'images', index=False)
 
